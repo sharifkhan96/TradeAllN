@@ -1,0 +1,17 @@
+# Production-style overrides: built frontend behind nginx, no dev server, no exposed infra ports.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d   -> http://localhost:8080
+services:
+  db:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  backend:
+    ports: !reset []
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DJANGO_DEBUG: "False"
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+    ports: !override ["8080:80"]

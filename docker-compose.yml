@@ -1,0 +1,80 @@
+# The whole stack:   docker compose up --build      -> http://localhost:5180
+# Infra only:        docker compose up -d db redis  (then run Django and Vite on the host)
+name: tradeall
+
+x-backend: &backend
+  build: ./backend
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://${POSTGRES_USER:-tradeall}:${POSTGRES_PASSWORD:-tradeall}@db:5432/${POSTGRES_DB:-tradeall}
+    REDIS_URL: redis://redis:6379/0
+    CELERY_BROKER_URL: redis://redis:6379/1
+    CHANNEL_LAYER_URL: redis://redis:6379/2
+  depends_on:
+    db: { condition: service_healthy }
+    redis: { condition: service_started }
+  restart: unless-stopped
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tradeall}
+      POSTGRES_USER: ${POSTGRES_USER:-tradeall}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradeall}
+    ports: ["5435:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tradeall}"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6381:6379"]
+
+  backend:
+    <<: *backend
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-tradeall}:${POSTGRES_PASSWORD:-tradeall}@db:5432/${POSTGRES_DB:-tradeall}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CHANNEL_LAYER_URL: redis://redis:6379/2
+      RUN_MIGRATIONS: "1"
+    ports: ["8010:8010"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8010/healthz')"]
+      interval: 5s
+      retries: 30
+      # first start downloads real data for ~180 popular tickers (a few minutes)
+      start_period: 900s
+
+  ingestor:
+    <<: *backend
+    command: ["python", "manage.py", "run_ingestor"]
+    depends_on:
+      backend: { condition: service_healthy }
+
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "config", "worker", "-l", "info", "--concurrency", "2"]
+    depends_on:
+      backend: { condition: service_healthy }
+
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "config", "beat", "-l", "info", "-s", "/tmp/celerybeat-schedule"]
+    depends_on:
+      backend: { condition: service_healthy }
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      VITE_PROXY_TARGET: http://backend:8010
+    ports: ["5180:5180"]
+    depends_on: [backend]
+
+volumes:
+  pgdata:
