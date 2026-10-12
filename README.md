@@ -2,6 +2,12 @@
 
 A stock-only paper-trading platform with **real market prices and real news**, where every price move is explained and you can trade and automate in plain English. Money is virtual; prices are not.
 
+<img width="1830" height="973" alt="Screenshot from 2026-10-12 23-57-18" src="https://github.com/user-attachments/assets/9301e454-089e-404a-aaf9-ff429a946e74" />
+---------------------------------------------------------------------------------- ::]] -------------------------------------------------------------------------
+<img width="1830" height="973" alt="Screenshot from 2026-10-12 23-57-12" src="https://github.com/user-attachments/assets/c61d3923-3848-4464-ab2f-ff28dd173304" />
+
+
+
 **Stack:** Django 5 · DRF · Channels (WebSockets) · Celery · PostgreSQL · Redis · React 18 + TypeScript · Vite · Tailwind · TradingView lightweight-charts · Claude API · Docker
 
 ## Quick start (Docker)
